@@ -1,30 +1,8 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Hosting;
+var builder = WebApplication.CreateBuilder(args);
+var app = builder.Build();
 
-namespace DerivedFactoryMemoryLeak {
-    public class Program {
-        public static void Main(string[] args) {
-            CreateHostBuilder(args).Build().Run();
-        }
+app.MapGet("/", () => "Hello World!");
 
-        public static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-                .ConfigureWebHostDefaults(webBuilder => {
-                    webBuilder.UseStartup<Startup>();
-                });
-    }
+app.Run();
 
-    public class Startup {
-        public void Configure(IApplicationBuilder app) {
-            app.UseRouting();
-
-            app.UseEndpoints(endpoints => {
-                endpoints.MapGet("/", async context => {
-                    await context.Response.WriteAsync("Hello World!");
-                });
-            });
-        }
-    }
-}
+public partial class Program { }

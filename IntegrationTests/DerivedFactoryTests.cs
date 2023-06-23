@@ -1,68 +1,63 @@
-using DerivedFactoryMemoryLeak;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Xunit;
 
-namespace IntegrationTests {
-    public class DerivedFactoryTests {
+namespace IntegrationTests;
 
-        [Fact]
-        public async Task DerivedFactoryTest_WithDisposableSingletonServices_AllShouldBeDisposed() {
-            // Arrange
-            var factory = new WebApplicationFactory<Startup>();
-            var firstDerived = factory
-                .WithWebHostBuilder(builder => {
-                    builder.ConfigureTestServices(services => {
-                        services.AddSingleton((_) => new DisposableService());
-                    });
-                });
+public class DerivedFactoryTests {
 
-            var secondDerived = firstDerived.WithWebHostBuilder(builder => {
+    [Fact]
+    public async Task DerivedFactoryTest_WithDisposableSingletonServices_AllShouldBeDisposed() {
+        // Arrange
+        var factory = new WebApplicationFactory<Program>();
+        var firstDerived = factory
+            .WithWebHostBuilder(builder => {
                 builder.ConfigureTestServices(services => {
                     services.AddSingleton((_) => new DisposableService());
                 });
             });
 
-            var allServices = new List<DisposableService>();
-            var derivedFactories = new List<WebApplicationFactory<Startup>> { firstDerived, secondDerived };
+        var secondDerived = firstDerived.WithWebHostBuilder(builder => {
+            builder.ConfigureTestServices(services => {
+                services.AddSingleton((_) => new DisposableService());
+            });
+        });
 
-            foreach (var derivedFactory in derivedFactories) {
-                var client = derivedFactory.CreateClient();
+        var allServices = new List<DisposableService>();
+        var derivedFactories = new List<WebApplicationFactory<Program>> { firstDerived, secondDerived };
 
-                // Act
-                var response = await client.GetAsync("/");
+        foreach (var derivedFactory in derivedFactories) {
+            var client = derivedFactory.CreateClient();
 
-                // Assert
-                Assert.Equal("Hello World!", await response.Content.ReadAsStringAsync());
+            // Act
+            var response = await client.GetAsync("/");
 
-                // explicitly resolve services from container so those get constructed
-                var services = derivedFactory.Services.GetServices<DisposableService>();
-                allServices.AddRange(services.ToList());
-            }
+            // Assert
+            Assert.Equal("Hello World!", await response.Content.ReadAsStringAsync());
 
-            // expicitly dispose top-level factory
-            factory.Dispose();
-
-            // Total amount of DisposableService instances should be 3
-            // 1 instance from first derived and 2 more instances from second derived factory
-            Assert.Equal(3, allServices.Count);
-
-            // and all 3 should be disposed when ancestor WebApplicationFactory is disposed
-            var totalDisposed = allServices.Count(s => s.DisposedHasBeenCalled);
-            Assert.Equal(3, totalDisposed);
+            // explicitly resolve services from container so those get constructed
+            var services = derivedFactory.Services.GetServices<DisposableService>();
+            allServices.AddRange(services.ToList());
         }
+
+        // explicitly dispose top-level factory
+        factory.Dispose();
+
+        // Total amount of DisposableService instances should be 3
+        // 1 instance from first derived and 2 more instances from second derived factory
+        Assert.Equal(3, allServices.Count);
+
+        // and all 3 should be disposed when ancestor WebApplicationFactory is disposed
+        var totalDisposed = allServices.Count(s => s.DisposedHasBeenCalled);
+        Assert.Equal(3, totalDisposed);
     }
+}
 
-    public class DisposableService : IDisposable {
-        public bool DisposedHasBeenCalled { get; private set; }
+public class DisposableService : IDisposable {
+    public bool DisposedHasBeenCalled { get; private set; }
 
-        public void Dispose() {
-            DisposedHasBeenCalled = true;
-        }
+    public void Dispose() {
+        DisposedHasBeenCalled = true;
     }
 }
